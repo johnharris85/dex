@@ -65,7 +65,7 @@ type Config struct {
 	AllowedOrigins []string
 
 	// If set, the server will use this connector to handle password grants
-	PasswordConnectorID string
+	AllowedPasswordConnectors []string
 
 	// If enabled, the server won't prompt the user to approve authorization requests.
 	// Logging in implies approval.
@@ -137,9 +137,8 @@ type Server struct {
 	// If enabled, don't prompt user for approval after logging in through connector.
 	skipApproval bool
 
-	// Used for password grant
-	passwordConnector   connector.PasswordConnector
-	passwordConnectorID string
+	// Used for resource owner password grant
+	allowedPasswordConnectors []string
 
 	supportedResponseTypes map[string]bool
 
@@ -201,18 +200,17 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 	}
 
 	s := &Server{
-		issuerURL:              *issuerURL,
-		connectors:             make(map[string]Connector),
-		storage:                newKeyCacher(c.Storage, now),
-		supportedResponseTypes: supported,
-		idTokensValidFor:       value(c.IDTokensValidFor, 24*time.Hour),
-		authRequestsValidFor:   value(c.AuthRequestsValidFor, 24*time.Hour),
-		skipApproval:           c.SkipApprovalScreen,
-		passwordConnector:      nil,
-		passwordConnectorID:    c.PasswordConnectorID,
-		now:                    now,
-		templates:              tmpls,
-		logger:                 c.Logger,
+		issuerURL:                 *issuerURL,
+		connectors:                make(map[string]Connector),
+		storage:                   newKeyCacher(c.Storage, now),
+		supportedResponseTypes:    supported,
+		idTokensValidFor:          value(c.IDTokensValidFor, 24*time.Hour),
+		authRequestsValidFor:      value(c.AuthRequestsValidFor, 24*time.Hour),
+		skipApproval:              c.SkipApprovalScreen,
+		allowedPasswordConnectors: c.AllowedPasswordConnectors,
+		now:                       now,
+		templates:                 tmpls,
+		logger:                    c.Logger,
 	}
 
 	// Retrieves connector objects in backend storage. This list includes the static connectors
@@ -302,20 +300,6 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 
 	s.startKeyRotation(ctx, rotationStrategy, now)
 	s.startGarbageCollection(ctx, value(c.GCFrequency, 5*time.Minute), now)
-
-	if c.PasswordConnectorID != "" {
-		// Which connector
-		conn, err := s.getConnector(c.PasswordConnectorID)
-		if err != nil {
-			return nil, fmt.Errorf("Requested password connector does not exist.")
-		}
-
-		passwordConnector, ok := conn.Connector.(connector.PasswordConnector)
-		if !ok {
-			return nil, fmt.Errorf("Requested password connector does not correct type.")
-		}
-		s.passwordConnector = passwordConnector
-	}
 
 	return s, nil
 }

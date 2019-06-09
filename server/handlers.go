@@ -737,7 +737,7 @@ func (s *Server) handleAuthCode(w http.ResponseWriter, r *http.Request, client s
 		s.logger.Errorf("connector with ID %q not found: %v", authCode.ConnectorID, err)
 		s.tokenErrHelper(w, errServerError, "", http.StatusInternalServerError)
 	} else {
-		if refreshToken, err = s.generateRefreshTokenIfNeeded(w, conn,
+		if refreshToken, err = s.generateRefreshTokenIfNeeded(w, conn.Connector,
 			authCode.ClientID, authCode.ConnectorID, authCode.Scopes,
 			authCode.Claims, authCode.Nonce, authCode.ConnectorData); err != nil {
 			return
@@ -1091,21 +1091,44 @@ func usernamePrompt(conn connector.PasswordConnector) string {
 
 func (s *Server) handlePasswordGrant(w http.ResponseWriter, r *http.Request, client storage.Client) {
 
-	if s.passwordConnector == nil {
-		s.tokenErrHelper(w, errInvalidRequest, "No connector for password grant", http.StatusBadRequest)
+	if len(s.allowedPasswordConnectors) == 0 {
+		s.tokenErrHelper(w, errInvalidRequest, "No connectors have been allowed for password grant", http.StatusBadRequest)
 		return
 	}
 
-	// Parse the fields
-	if err := r.ParseForm(); err != nil {
-		s.tokenErrHelper(w, errInvalidRequest, "Couldn't parse data", http.StatusBadRequest)
+	nonce := r.PostFormValue("nonce")
+
+	connectorID := r.PostFormValue("connector")
+	if connectorID == "" {
+		s.logger.Errorf("no connector specified")
+		s.tokenErrHelper(w, errInvalidRequest, "No connector specified", http.StatusBadRequest)
 		return
 	}
-	q := r.Form
 
-	nonce := q.Get("nonce")
+	seen := false
+	for _, c := range s.allowedPasswordConnectors {
+		if connectorID == c {
+			seen = true
+			break
+		}
+	}
+	if !seen {
+		s.logger.Errorf("connector %s not enabled for password grant flow", connectorID)
+		s.tokenErrHelper(w, errInvalidRequest, "Connector not enabled for password grant flow", http.StatusBadRequest)
+		return
+	}
+
+	conn, err := s.getConnector(connectorID)
+	if err != nil {
+		s.logger.Errorf("can't get connector for password grant: %s", err)
+		s.tokenErrHelper(w, errInvalidRequest, "Can't get connector for password grant", http.StatusBadRequest)
+		return
+	}
+
+	passConnector := conn.Connector.(connector.PasswordConnector)
+
 	// Some clients, like the old go-oidc, provide extra whitespace. Tolerate this.
-	scopes := strings.Fields(q.Get("scope"))
+	scopes := strings.Fields(r.PostFormValue("scope"))
 
 	if errType, err := s.checkScopes(scopes, client.ID); err != "" {
 		s.tokenErrHelper(w, errType, err, http.StatusBadRequest)
@@ -1113,9 +1136,9 @@ func (s *Server) handlePasswordGrant(w http.ResponseWriter, r *http.Request, cli
 	}
 
 	// Login
-	username := q.Get("username")
-	password := q.Get("password")
-	identity, ok, err := s.passwordConnector.Login(r.Context(), parseScopes(scopes), username, password)
+	username := r.PostFormValue("username")
+	password := r.PostFormValue("password")
+	identity, ok, err := passConnector.Login(r.Context(), parseScopes(scopes), username, password)
 	if err != nil {
 		s.tokenErrHelper(w, errInvalidRequest, "Could not login user", http.StatusBadRequest)
 		return
@@ -1135,15 +1158,15 @@ func (s *Server) handlePasswordGrant(w http.ResponseWriter, r *http.Request, cli
 	}
 
 	accessToken := storage.NewID()
-	idToken, expiry, err := s.newIDToken(client.ID, claims, scopes, nonce, accessToken, s.passwordConnectorID)
+	idToken, expiry, err := s.newIDToken(client.ID, claims, scopes, nonce, accessToken, connectorID)
 	if err != nil {
 		s.tokenErrHelper(w, errServerError, fmt.Sprintf("failed to create ID token: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	var refreshToken string
-	if refreshToken, err = s.generateRefreshTokenIfNeeded(w, s.passwordConnector.(connector.Connector),
-		client.ID, s.passwordConnectorID, scopes, claims, nonce, identity.ConnectorData); err != nil {
+	if refreshToken, err = s.generateRefreshTokenIfNeeded(w, passConnector.(connector.Connector),
+		client.ID, connectorID, scopes, claims, nonce, identity.ConnectorData); err != nil {
 		return
 	}
 

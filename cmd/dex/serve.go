@@ -209,8 +209,8 @@ func serve(cmd *cobra.Command, args []string) error {
 	if c.OAuth2.SkipApprovalScreen {
 		logger.Infof("config skipping approval screen")
 	}
-	if c.OAuth2.PasswordConnectorID != "" {
-		logger.Infof("config using password grant connector: %s", c.OAuth2.PasswordConnectorID)
+	if len(c.OAuth2.AllowedPasswordConnectors) > 0 {
+		logger.Infof("config allowed password grant connectors: %s", c.OAuth2.AllowedPasswordConnectors)
 	}
 	if len(c.Web.AllowedOrigins) > 0 {
 		logger.Infof("config allowed origins: %s", c.Web.AllowedOrigins)
@@ -220,16 +220,16 @@ func serve(cmd *cobra.Command, args []string) error {
 	now := func() time.Time { return time.Now().UTC() }
 
 	serverConfig := server.Config{
-		SupportedResponseTypes: c.OAuth2.ResponseTypes,
-		SkipApprovalScreen:     c.OAuth2.SkipApprovalScreen,
-		PasswordConnectorID:    c.OAuth2.PasswordConnectorID,
-		AllowedOrigins:         c.Web.AllowedOrigins,
-		Issuer:                 c.Issuer,
-		Storage:                s,
-		Web:                    c.Frontend,
-		Logger:                 logger,
-		Now:                    now,
-		PrometheusRegistry:     prometheusRegistry,
+		SupportedResponseTypes:    c.OAuth2.ResponseTypes,
+		SkipApprovalScreen:        c.OAuth2.SkipApprovalScreen,
+		AllowedPasswordConnectors: c.OAuth2.AllowedPasswordConnectors,
+		AllowedOrigins:            c.Web.AllowedOrigins,
+		Issuer:                    c.Issuer,
+		Storage:                   s,
+		Web:                       c.Frontend,
+		Logger:                    logger,
+		Now:                       now,
+		PrometheusRegistry:        prometheusRegistry,
 	}
 	if c.Expiry.SigningKeys != "" {
 		signingKeys, err := time.ParseDuration(c.Expiry.SigningKeys)

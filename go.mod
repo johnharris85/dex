@@ -16,7 +16,7 @@ require (
 	github.com/ghodss/yaml v0.0.0-20161020005002-bea76d6a4713
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
-	github.com/golang/protobuf v0.0.0-20171113180720-1e59b77b52bf
+	github.com/golang/protobuf v1.2.0
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/gorilla/context v0.0.0-20160525203319-aed02d124ae4 // indirect
 	github.com/gorilla/handlers v0.0.0-20161206055144-3a5767ca75ec
@@ -34,7 +34,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20160421231612-c97913dcbd76 // indirect
 	github.com/prometheus/client_golang v0.9.0-pre1
-	github.com/prometheus/client_model v0.0.0-20150212101744-fa8ad6fec335 // indirect
+	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
 	github.com/prometheus/common v0.0.0-20170220103846-49fee292b27b // indirect
 	github.com/prometheus/procfs v0.0.0-20170216223256-a1dba9ce8bae // indirect
 	github.com/russellhaering/goxmldsig v0.0.0-20170324122954-eaac44c63fe0
@@ -49,7 +49,6 @@ require (
 	golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3
 	golang.org/x/net v0.0.0-20170413175226-5602c733f70a
 	golang.org/x/oauth2 v0.0.0-20160718223228-08c8d727d239
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
 	golang.org/x/sys v0.0.0-20151211033651-833a04a10549 // indirect
 	golang.org/x/text v0.0.0-20170401064109-f4b4367115ec // indirect
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
