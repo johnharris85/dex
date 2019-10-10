@@ -71,6 +71,9 @@ type Config struct {
 	// Logging in implies approval.
 	SkipApprovalScreen bool
 
+	// If enabled, the connectors selection page will always be shown even if there's only one
+	AlwaysShowLoginScreen bool
+
 	RotateKeysAfter      time.Duration // Defaults to 6 hours.
 	IDTokensValidFor     time.Duration // Defaults to 24 hours
 	AuthRequestsValidFor time.Duration // Defaults to 24 hours
@@ -110,6 +113,9 @@ type WebConfig struct {
 
 	// Defaults to "coreos"
 	Theme string
+
+	// Map of extra values passed into the templates
+	Extra map[string]string
 }
 
 func value(val, defaultValue time.Duration) time.Duration {
@@ -139,6 +145,8 @@ type Server struct {
 
 	// Used for resource owner password grant
 	allowedPasswordConnectors []string
+	// If enabled, show the connector selection screen even if there's only one
+	alwaysShowLogin bool
 
 	supportedResponseTypes map[string]bool
 
@@ -187,6 +195,7 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		issuerURL: c.Issuer,
 		issuer:    c.Web.Issuer,
 		theme:     c.Web.Theme,
+		extra:     c.Web.Extra,
 	}
 
 	static, theme, tmpls, err := loadWebConfig(web)
@@ -200,17 +209,18 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 	}
 
 	s := &Server{
-		issuerURL:                 *issuerURL,
-		connectors:                make(map[string]Connector),
-		storage:                   newKeyCacher(c.Storage, now),
-		supportedResponseTypes:    supported,
-		idTokensValidFor:          value(c.IDTokensValidFor, 24*time.Hour),
-		authRequestsValidFor:      value(c.AuthRequestsValidFor, 24*time.Hour),
-		skipApproval:              c.SkipApprovalScreen,
+		issuerURL:              *issuerURL,
+		connectors:             make(map[string]Connector),
+		storage:                newKeyCacher(c.Storage, now),
+		supportedResponseTypes: supported,
+		idTokensValidFor:       value(c.IDTokensValidFor, 24*time.Hour),
+		authRequestsValidFor:   value(c.AuthRequestsValidFor, 24*time.Hour),
+		skipApproval:           c.SkipApprovalScreen,
+		alwaysShowLogin:        c.AlwaysShowLoginScreen,
 		allowedPasswordConnectors: c.AllowedPasswordConnectors,
-		now:                       now,
-		templates:                 tmpls,
-		logger:                    c.Logger,
+		now:                    now,
+		templates:              tmpls,
+		logger:                 c.Logger,
 	}
 
 	// Retrieves connector objects in backend storage. This list includes the static connectors
@@ -277,6 +287,7 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 	// TODO(ericchiang): rate limit certain paths based on IP.
 	handleWithCORS("/token", s.handleToken)
 	handleWithCORS("/keys", s.handlePublicKeys)
+	handleWithCORS("/userinfo", s.handleUserInfo)
 	handleFunc("/auth", s.handleAuthorization)
 	handleFunc("/auth/{connector}", s.handleConnectorLogin)
 	r.HandleFunc(path.Join(issuerURL.Path, "/callback"), func(w http.ResponseWriter, r *http.Request) {
@@ -432,7 +443,6 @@ func (s *Server) startGarbageCollection(ctx context.Context, frequency time.Dura
 			}
 		}
 	}()
-	return
 }
 
 // ConnectorConfig is a configuration that can open a connector.

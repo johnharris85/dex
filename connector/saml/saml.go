@@ -20,6 +20,7 @@ import (
 	"github.com/russellhaering/goxmldsig/etreeutils"
 )
 
+// nolint
 const (
 	bindingRedirect = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
 	bindingPOST     = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
@@ -444,7 +445,7 @@ func (p *provider) validateStatus(status *status) error {
 func (p *provider) validateSubject(subject *subject, inResponseTo string) error {
 	// Optional according to the spec, but again, we're going to be strict here.
 	if len(subject.SubjectConfirmations) == 0 {
-		return fmt.Errorf("Subject contained no SubjectConfrimations")
+		return fmt.Errorf("Subject contained no SubjectConfirmations")
 	}
 
 	var errs []error
